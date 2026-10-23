@@ -1,0 +1,41 @@
+name: source probe
+
+# Manual only. Checks from a runner whether the JSON advisory list answers
+# and how fast: page 1 (the list's size, the page's date range, the product
+# count), then 12 more paced pages; reports latency, every non-200 answer
+# and every 200 that is not a list page (a web firewall's challenge page).
+# Stores nothing.
+# Set the repository secret SOURCE_BASE to the source's API base URL
+# (Settings → Secrets and variables → Actions → Secrets); it is masked in every log.
+on:
+  workflow_dispatch:
+    inputs:
+      pace:
+        description: "seconds between requests"
+        required: false
+        default: "1"
+      pages:
+        description: "paced pages after the first (default 12)"
+        required: false
+        default: ""
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: refuse without the source secret
+        env:
+          BASE: ${{ secrets.SOURCE_BASE }}
+        run: |
+          if [ -z "$BASE" ]; then echo "::error::repository secret SOURCE_BASE is not set"; exit 1; fi
+      - name: probe
+        env:
+          BASE: ${{ secrets.SOURCE_BASE }}
+          PACE: ${{ inputs.pace }}
+          PAGES: ${{ inputs.pages }}
+        run: |
+          chmod +x bin/source-probe
+          sha256sum bin/source-probe
+          bin/source-probe
